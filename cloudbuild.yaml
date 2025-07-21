@@ -1,24 +1,24 @@
 steps:
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'us-central1-docker.pkg.dev/vpc-satyajith/my-docker/quickstart-image', './app1' ]
+  args: ['build', '-t', 'us-central1-docker.pkg.dev/vpc-satyajith/my-docker2/quickstart-image', './app1' ]
   id: 'Build Docker Image'
 
   # images:
   # - 'us-central1-docker.pkg.dev/<your_project_id>/gke-repo/quickstart-image'
 
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'us-central1-docker.pkg.dev/vpc-satyajith/my-docker/quickstart-image' ]
+  args: ['push', 'us-central1-docker.pkg.dev/vpc-satyajith/my-docker2/quickstart-image' ]
   id: 'Push Docker Image'
 
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'us-central1-docker.pkg.dev/vpc-satyajith/my-docker/flask-image', './app2' ]
+  args: ['build', '-t', 'us-central1-docker.pkg.dev/vpc-satyajith/my-docker2/flask-image', './app2' ]
   id: 'Build Docker Image2'
 
   # images:
   # - 'us-central1-docker.pkg.dev/<your_project_id>/gke-repo/quickstart-image'
 
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'us-central1-docker.pkg.dev/vpc-satyajith/my-docker/flask-image' ]
+  args: ['push', 'us-central1-docker.pkg.dev/vpc-satyajith/my-docker2/flask-image' ]
   id: 'Push Docker Image2'
 
 
