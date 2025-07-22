@@ -4,7 +4,7 @@ metadata:
   name: dev
   annotations: {}
   labels: {}
-description: dev
+description: deve
 gke:
   cluster: projects/vpc-satyajith/locations/us-central1-c/clusters/autopilot-cluster-1
 
