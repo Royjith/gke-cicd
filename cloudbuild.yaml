@@ -1,37 +1,43 @@
 steps:
+# Step 1: Build Docker Image for 'app1'
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'us-central1-docker.pkg.dev/<your_project_id>/gke-repo/quickstart-image', './app1' ]
-  id: 'Build Docker Image'
+  args: ['build', '-t', 'us-central1-docker.pkg.dev/vpc-satyajith/docker-3/quickstart-image', './app1' ]
+  id: 'Build quickstart-image'
 
-  # images:
-  # - 'us-central1-docker.pkg.dev/<your_project_id>/gke-repo/quickstart-image'
-
+# Step 2: Push Docker Image for 'app1'
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'us-central1-docker.pkg.dev/<your_project_id>/gke-repo/quickstart-image' ]
-  id: 'Push Docker Image'
+  args: ['push', 'us-central1-docker.pkg.dev/vpc-satyajith/docker-3/quickstart-image' ]
+  id: 'Push quickstart-image'
 
+# Step 3: Build Docker Image for 'app2' (Flask application)
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'us-central1-docker.pkg.dev/<your_project_id>/gke-repo/flask-image', './app2' ]
-  id: 'Build Docker Image2'
+  args: ['build', '-t', 'us-central1-docker.pkg.dev/vpc-satyajith/docker-3/flask-image', './app2' ]
+  id: 'Build flask-image'
 
-  # images:
-  # - 'us-central1-docker.pkg.dev/<your_project_id>/gke-repo/quickstart-image'
-
+# Step 4: Push Docker Image for 'app2'
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'us-central1-docker.pkg.dev/<your_project_id>/gke-repo/flask-image' ]
-  id: 'Push Docker Image2'
+  args: ['push', 'us-central1-docker.pkg.dev/vpc-satyajith/docker-3/flask-image' ]
+  id: 'Push flask-image'
 
-
+# Step 5: Deploy using Google Cloud Deploy
+# This step applies the pipeline and target definitions, then creates a new release.
 - name: 'google/cloud-sdk:latest'
   entrypoint: 'sh'
   args:
-  - -xe
-  - -c
+  - -xe # -x: print commands, -e: exit on error
+  - -c # execute the following string as a command
   - |
+    # Apply the Cloud Deploy pipeline definition
     gcloud deploy apply --file deploy/pipeline.yaml --region=us-central1
+    # Apply the Cloud Deploy development target definition
     gcloud deploy apply --file deploy/dev.yaml --region=us-central1
-    gcloud deploy releases create 'app-release-${SHORT_SHA}' --delivery-pipeline=gke-cicd-pipeline --region=us-central1 --skaffold-file=skaffold.yaml
-
+    # Create a new release for the delivery pipeline
+    # ${SHORT_SHA} is a built-in Cloud Build substitution variable for the commit SHA
+    gcloud deploy releases create 'app-release-${SHORT_SHA}' \
+        --delivery-pipeline=gke-cicd-pipeline \
+        --region=us-central1 \
+        --skaffold-file=skaffold.yaml
 
 options:
+  # Configure logging to only send logs to Cloud Logging, not also to Cloud Storage #for logs
   logging: CLOUD_LOGGING_ONLY
