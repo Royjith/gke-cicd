@@ -1,9 +1,17 @@
-apiVersion: skaffold/v4beta9
+piVersion: skaffold/v4beta9
 kind: Config
 build:
+  # --- START Correction: Add artifacts section ---
+  artifacts:
+    - image: my-app-image # This is the name your Kubernetes manifests will reference (e.g., in a Deployment's image field)
+      docker:
+        dockerfile: Dockerfile # Path to your Dockerfile, relative to the skaffold.yaml
+        context: .            # The build context (usually the current directory or a subdirectory)
+  # --- END Correction ---
   tagPolicy:
     gitCommit: {}
-  local: {}
+  local: {} # If you intend to use Google Cloud Build, you would replace or add `googleCloudBuild: { projectId: "your-project-id" }` here.
+            # For Cloud Deploy, `local: {}` usually works because Cloud Deploy's Cloud Build environment effectively acts "locally" to the source.
 manifests:
   rawYaml:
     - ./kubernetes/*
