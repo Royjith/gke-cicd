@@ -3,7 +3,7 @@ kind: DeliveryPipeline
 metadata:
   name: gke-cicd-pipeline
   labels:
-    app: cicd
+    app: ci-cd
 description: cicd delivery pipeline
 serialPipeline:
   stages:
