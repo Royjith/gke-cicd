@@ -28,7 +28,7 @@ steps:
   - -c # execute the following string as a command
   - |
     # Apply the Cloud Deploy pipeline definition
-    gcloud deploy apply --file deploy/pipeline.yaml --region=us-central1
+    #gcloud deploy apply --file deploy/pipeline.yaml --region=us-central1
     # Apply the Cloud Deploy development target definition
     gcloud deploy apply --file deploy/dev.yaml --region=us-central1
     # Create a new release for the delivery pipeline
