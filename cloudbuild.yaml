@@ -30,7 +30,7 @@ steps:
     # Apply the Cloud Deploy pipeline definition
     #gcloud deploy apply --file deploy/pipeline.yaml --region=us-central1
     # Apply the Cloud Deploy development target definition
-    gcloud deploy apply --file deploy/dev.yaml --region=us-central1
+    #gcloud deploy apply --file deploy/dev.yaml --region=us-central1
     # Create a new release for the delivery pipeline
     # ${SHORT_SHA} is a built-in Cloud Build substitution variable for the commit SHA
     gcloud deploy releases create 'app-release-${SHORT_SHA}' \
