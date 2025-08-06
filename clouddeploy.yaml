@@ -8,14 +8,17 @@ description: cicd delivery pipeline
 serialPipeline:
   stages:
   - targetId: dev
-    # profiles:
-    # - dev
-  # - targetId: staging
-  #   profiles:
-  #   - staging
-  - targetId: prod
-  #   profiles:
-  #   - prod
+    profiles: []
+  - targetId: prod # <<-- New stage for prod
+    profiles: []
+    # Add this block to require a manual approval
+    strategy:
+      standard:
+        postdeploy:
+          actions: []
+        predeploy:
+          actions: []
+
 ---
 apiVersion: deploy.cloud.google.com/v1
 kind: Target
