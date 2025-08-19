@@ -38,6 +38,23 @@ steps:
         --region=us-central1 \
         --skaffold-file=skaffold.yaml
 
+# Step 6: Run Web Security Scanner after deploy
+- name: 'google/cloud-sdk:latest'
+  entrypoint: 'bash'
+  env:
+    - 'PROJECT_ID=$PROJECT_ID'
+    - 'REGION=us-central1'
+    - 'CLUSTER=autopilot-cluster-1'
+    - 'NAMESPACE=default'
+    - 'SERVICES=my-service:8080,flask-service:8081'
+    - 'SCAN_DISPLAY_NAME=gke-cicd-scan-${SHORT_SHA}'
+    - 'SCAN_FAIL_ON_SEVERITY=MEDIUM'
+  args:
+    - -c
+    - |
+      chmod +x security/web_security_scanner.sh
+      ./security/web_security_scanner.sh
+
 options:
   # Configure logging to only send logs to Cloud Logging, not also to Cloud Storage #for logs
   logging: CLOUD_LOGGING_ONLY

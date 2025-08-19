@@ -25,6 +25,7 @@ This CI/CD pipeline leverages several key components:
 - Cloud Build: A fully managed continuous integration and continuous delivery platform that allows developers to build, test, and deploy applications on Google Cloud Platform.
 - Cloud Deploy: A service for continuous delivery that automates the deployment of containerized applications to Google Kubernetes Engine and other platforms.
 - GitHub: A popular version control platform where developers collaborate, manage, and version control their codebase.
+ - Web Security Scanner: Post-deploy dynamic application security testing integrated into the pipeline.
 
 ## Solution
 
@@ -38,6 +39,7 @@ We are going to implement the solution using the following steps to implement th
 6. Now Create cloudbuild.yaml file to build and push docker images to Artifact registry for both application and Configure a Cloud Build trigger to initiate the pipeline upon code push events in the GitHub repository.
 7. Implement the necessary code to define the Cloud Deploy pipeline and targets for both dev-cluster and prod-cluster.
 8. Push the updated code to the GitHub repository, triggering the Cloud Build and Cloud Deploy processes.
+9. The pipeline runs a Web Security Scanner scan against the exposed services and fails on MEDIUM+ findings (configurable). See `security/README.md`.
 
    If you encounter any confusion, please refer to the [Video](https://youtu.be/L_1qbt-Iii0?feature=shared)
  linked at the beginning of the blog.
