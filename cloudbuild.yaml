@@ -50,6 +50,10 @@ steps:
     - 'SERVICES=my-service:8080,flask-service:8081'
     - 'SCAN_DISPLAY_NAME=gke-cicd-scan-${SHORT_SHA}'
     - 'SCAN_FAIL_ON_SEVERITY=MEDIUM'
+    - 'WAIT_CLOUD_DEPLOY=true'
+    - 'DELIVERY_PIPELINE=gke-cicd-pipeline'
+    - 'DEPLOY_REGION=us-central1'
+    - 'SERVICE_READY_TIMEOUT_SECS=1200'
   args:
     - -c
     - |

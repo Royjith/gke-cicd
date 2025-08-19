@@ -16,6 +16,9 @@ FAIL_ON_SEVERITY="${SCAN_FAIL_ON_SEVERITY:-NONE}"
 # Max time to wait for service readiness and scan completion (seconds)
 SERVICE_READY_TIMEOUT_SECS="${SERVICE_READY_TIMEOUT_SECS:-600}"
 SCAN_TIMEOUT_SECS="${SCAN_TIMEOUT_SECS:-3600}"
+DELIVERY_PIPELINE="${DELIVERY_PIPELINE:-gke-cicd-pipeline}"
+DEPLOY_REGION="${DEPLOY_REGION:-us-central1}"
+WAIT_CLOUD_DEPLOY="${WAIT_CLOUD_DEPLOY:-false}"
 
 if [[ -z "${PROJECT_ID}" ]]; then
   echo "ERROR: PROJECT_ID is not set and could not be inferred from gcloud config." >&2
@@ -28,12 +31,24 @@ echo "Namespace: ${NAMESPACE}"
 echo "Services: ${SERVICES}"
 echo "Scan display name: ${DISPLAY_NAME}"
 echo "Fail on severity: ${FAIL_ON_SEVERITY}"
+echo "Delivery pipeline: ${DELIVERY_PIPELINE} (region=${DEPLOY_REGION}), wait for rollout: ${WAIT_CLOUD_DEPLOY}"
 
 # Ensure needed tools are present
 if ! command -v jq >/dev/null 2>&1; then
   echo "Installing jq..."
   apt-get update -y >/dev/null && apt-get install -y jq >/dev/null
 fi
+
+# Enable required Google APIs (idempotent)
+APIS_TO_ENABLE="${APIS_TO_ENABLE:-serviceusage.googleapis.com,container.googleapis.com,clouddeploy.googleapis.com,websecurityscanner.googleapis.com}"
+IFS=',' read -r -a apis_array <<< "${APIS_TO_ENABLE}"
+echo "Ensuring required APIs are enabled: ${APIS_TO_ENABLE}"
+for api in "${apis_array[@]}"; do
+  echo "Enabling API: ${api}"
+  if ! gcloud services enable "${api}" --project "${PROJECT_ID}" --quiet; then
+    echo "WARNING: Failed to enable ${api}. Ensure it is enabled and that the Cloud Build service account has permissions (roles/serviceusage.serviceUsageAdmin)." >&2
+  fi
+done
 
 # Authenticate kubectl against the cluster (read-only)
 if [[ -n "${ZONE}" ]]; then
@@ -45,6 +60,82 @@ fi
 # Resolve service external endpoints and wait until reachable
 declare -a STARTING_URLS
 IFS=',' read -r -a service_array <<< "${SERVICES}"
+
+wait_for_service_object() {
+  local svc_name="$1"
+  local deadline=$(( $(date +%s) + SERVICE_READY_TIMEOUT_SECS ))
+  echo "Waiting for Service/${svc_name} in namespace ${NAMESPACE} to exist..."
+  until kubectl -n "${NAMESPACE}" get svc "${svc_name}" >/dev/null 2>&1; do
+    if (( $(date +%s) > deadline )); then
+      echo "Timed out waiting for Service/${svc_name} to be created." >&2
+      return 1
+    fi
+    sleep 5
+  done
+  echo "Service/${svc_name} exists."
+}
+
+wait_for_loadbalancer_ingress() {
+  local svc_name="$1"
+  local deadline=$(( $(date +%s) + SERVICE_READY_TIMEOUT_SECS ))
+  echo "Waiting for LoadBalancer ingress for Service/${svc_name}..."
+  while true; do
+    ip=$(kubectl -n "${NAMESPACE}" get svc "${svc_name}" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+    host=$(kubectl -n "${NAMESPACE}" get svc "${svc_name}" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+    external_host="${ip:-${host:-}}"
+    if [[ -n "${external_host}" ]]; then
+      echo "Ingress ready: ${external_host}"
+      break
+    fi
+    if (( $(date +%s) > deadline )); then
+      echo "Timed out waiting for LoadBalancer ingress for Service/${svc_name}" >&2
+      echo "Service describe:" >&2
+      kubectl -n "${NAMESPACE}" describe svc "${svc_name}" >&2 || true
+      echo "Service YAML:" >&2
+      kubectl -n "${NAMESPACE}" get svc "${svc_name}" -o yaml >&2 || true
+      echo "Recent events:" >&2
+      kubectl get events -A --sort-by=.metadata.creationTimestamp | tail -n 100 >&2 || true
+      return 1
+    fi
+    sleep 5
+  done
+  echo -n "${external_host}"
+}
+
+wait_for_cloud_deploy_rollout() {
+  local release_name="$1"
+  local deadline=$(( $(date +%s) + SERVICE_READY_TIMEOUT_SECS ))
+  echo "Waiting for Cloud Deploy rollout of release ${release_name} in pipeline ${DELIVERY_PIPELINE} (${DEPLOY_REGION})..."
+  while true; do
+    # Get the latest rollout and its state
+    rollout=$(gcloud deploy rollouts list --release "${release_name}" --delivery-pipeline "${DELIVERY_PIPELINE}" --region "${DEPLOY_REGION}" --format="value(name,state)" | tail -n1 || true)
+    rollout_name=$(echo "${rollout}" | awk '{print $1}')
+    rollout_state=$(echo "${rollout}" | awk '{print $2}')
+    echo "Current rollout: ${rollout_name:-<none>} state=${rollout_state:-<unknown>}"
+    if [[ "${rollout_state}" == "SUCCEEDED" ]]; then
+      echo "Rollout succeeded."
+      break
+    fi
+    if [[ "${rollout_state}" == "FAILED" || "${rollout_state}" == "CANCELLED" ]]; then
+      echo "ERROR: Rollout ended with state ${rollout_state}." >&2
+      return 1
+    fi
+    if (( $(date +%s) > deadline )); then
+      echo "ERROR: Timed out waiting for rollout to complete." >&2
+      return 1
+    fi
+    sleep 10
+  done
+}
+
+if [[ "${WAIT_CLOUD_DEPLOY}" == "true" ]]; then
+  if [[ -n "${SHORT_SHA:-}" ]]; then
+    release_name="app-release-${SHORT_SHA}"
+    wait_for_cloud_deploy_rollout "${release_name}"
+  else
+    echo "SHORT_SHA not set; skipping Cloud Deploy rollout wait."
+  fi
+fi
 
 wait_for_http_ok() {
   local url="$1"
@@ -64,31 +155,15 @@ for entry in "${service_array[@]}"; do
   svc_name="${entry%%:*}"
   svc_port="${entry##*:}"
   echo "Resolving external endpoint for service ${svc_name}..."
-  # Wait for LoadBalancer IP/hostname to be assigned
-  deadline=$(( $(date +%s) + SERVICE_READY_TIMEOUT_SECS ))
-  external_host=""
-  while [[ -z "${external_host}" ]]; do
-    ip=$(kubectl -n "${NAMESPACE}" get svc "${svc_name}" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
-    host=$(kubectl -n "${NAMESPACE}" get svc "${svc_name}" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
-    external_host="${ip:-${host:-}}"
-    if [[ -n "${external_host}" ]]; then
-      break
-    fi
-    if (( $(date +%s) > deadline )); then
-      echo "Timed out waiting for external endpoint for service ${svc_name}" >&2
-      exit 1
-    fi
-    sleep 5
-  done
+  # Wait for Service existence and LoadBalancer ingress
+  wait_for_service_object "${svc_name}"
+  external_host=$(wait_for_loadbalancer_ingress "${svc_name}")
   url="http://${external_host}:${svc_port}"
   wait_for_http_ok "${url}"
   STARTING_URLS+=("${url}")
 done
 
 echo "Starting URLs: ${STARTING_URLS[*]}"
-
-# Enable the Web Security Scanner API (idempotent)
-gcloud services enable websecurityscanner.googleapis.com --project "${PROJECT_ID}" --quiet
 
 # Get access token for REST calls
 ACCESS_TOKEN=$(gcloud auth print-access-token)
