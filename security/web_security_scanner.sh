@@ -2,9 +2,10 @@
 set -euo pipefail
 
 # Configuration via environment variables (with sensible defaults)
-PROJECT_ID="${PROJECT_ID:-$(gcloud config get-value project 2>/dev/null || true)}"
-CLUSTER="${CLUSTER:-autopilot-cluster-1}"
+PROJECT_ID="${PROJECT_ID:-vpc-satyajith}"
+CLUSTER="${CLUSTER:-gke-cluster-01}"
 REGION="${REGION:-us-central1}"
+ZONE="${ZONE:-us-central1-a}"
 NAMESPACE="${NAMESPACE:-default}"
 # Comma-separated list of name:port for services to scan
 SERVICES="${SERVICES:-my-service:8080,flask-service:8081}"
@@ -22,7 +23,7 @@ if [[ -z "${PROJECT_ID}" ]]; then
 fi
 
 echo "Using project: ${PROJECT_ID}"
-echo "Cluster: ${CLUSTER} (${REGION})"
+echo "Cluster: ${CLUSTER} (region=${REGION}, zone=${ZONE})"
 echo "Namespace: ${NAMESPACE}"
 echo "Services: ${SERVICES}"
 echo "Scan display name: ${DISPLAY_NAME}"
@@ -35,7 +36,11 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 # Authenticate kubectl against the cluster (read-only)
-gcloud container clusters get-credentials "${CLUSTER}" --region "${REGION}" --project "${PROJECT_ID}"
+if [[ -n "${ZONE}" ]]; then
+  gcloud container clusters get-credentials "${CLUSTER}" --zone "${ZONE}" --project "${PROJECT_ID}"
+else
+  gcloud container clusters get-credentials "${CLUSTER}" --region "${REGION}" --project "${PROJECT_ID}"
+fi
 
 # Resolve service external endpoints and wait until reachable
 declare -a STARTING_URLS

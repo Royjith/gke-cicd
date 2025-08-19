@@ -42,9 +42,10 @@ steps:
 - name: 'google/cloud-sdk:latest'
   entrypoint: 'bash'
   env:
-    - 'PROJECT_ID=$PROJECT_ID'
+    - 'PROJECT_ID=vpc-satyajith'
     - 'REGION=us-central1'
-    - 'CLUSTER=autopilot-cluster-1'
+    - 'ZONE=us-central1-a'
+    - 'CLUSTER=gke-cluster-01'
     - 'NAMESPACE=default'
     - 'SERVICES=my-service:8080,flask-service:8081'
     - 'SCAN_DISPLAY_NAME=gke-cicd-scan-${SHORT_SHA}'
