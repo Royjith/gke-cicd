@@ -129,11 +129,20 @@ wait_for_cloud_deploy_rollout() {
 }
 
 if [[ "${WAIT_CLOUD_DEPLOY}" == "true" ]]; then
-  if [[ -n "${SHORT_SHA:-}" ]]; then
+  # Check if RELEASE_NAME is set from the environment file
+  if [[ -f /workspace/env.sh ]]; then
+    source /workspace/env.sh
+  fi
+  
+  if [[ -n "${RELEASE_NAME:-}" ]]; then
+    echo "Using RELEASE_NAME from environment: ${RELEASE_NAME}"
+    wait_for_cloud_deploy_rollout "${RELEASE_NAME}"
+  elif [[ -n "${SHORT_SHA:-}" ]]; then
     release_name="app-release-${SHORT_SHA}"
+    echo "Using SHORT_SHA-based release name: ${release_name}"
     wait_for_cloud_deploy_rollout "${release_name}"
   else
-    echo "SHORT_SHA not set; skipping Cloud Deploy rollout wait."
+    echo "Neither RELEASE_NAME nor SHORT_SHA set; skipping Cloud Deploy rollout wait."
   fi
 fi
 

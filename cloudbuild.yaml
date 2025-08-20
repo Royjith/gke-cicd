@@ -33,10 +33,15 @@ steps:
     # gcloud deploy apply --file deploy/dev.yaml --region=us-central1
     # Create a new release for the delivery pipeline
     # ${SHORT_SHA} is a built-in Cloud Build substitution variable for the commit SHA
-    gcloud deploy releases create 'app-release-${SHORT_SHA}' \
+    # Use timestamp to ensure unique release names
+    RELEASE_NAME="app-release-${SHORT_SHA}-$(date +%s)"
+    gcloud deploy releases create "${RELEASE_NAME}" \
         --delivery-pipeline=gke-cicd-pipeline \
         --region=us-central1 \
         --skaffold-file=skaffold.yaml
+    echo "Created release: ${RELEASE_NAME}"
+    # Export for use in subsequent steps
+    echo "RELEASE_NAME=${RELEASE_NAME}" >> /workspace/env.sh
 
 # Step 6: Run Web Security Scanner after deploy
 - name: 'google/cloud-sdk:latest'
@@ -48,7 +53,7 @@ steps:
     - 'CLUSTER=gke-cluster-01'
     - 'NAMESPACE=default'
     - 'SERVICES=my-service:8080,flask-service:8081'
-    - 'SCAN_DISPLAY_NAME=gke-cicd-scan-${SHORT_SHA}'
+    - 'SCAN_DISPLAY_NAME=gke-cicd-scan-${SHORT_SHA}-$(date +%s)'
     - 'SCAN_FAIL_ON_SEVERITY=MEDIUM'
     - 'WAIT_CLOUD_DEPLOY=true'
     - 'DELIVERY_PIPELINE=gke-cicd-pipeline'
@@ -57,6 +62,11 @@ steps:
   args:
     - -c
     - |
+      # Source the environment file to get RELEASE_NAME
+      if [[ -f /workspace/env.sh ]]; then
+        source /workspace/env.sh
+        echo "Using release: ${RELEASE_NAME:-<not set>}"
+      fi
       chmod +x security/web_security_scanner.sh
       ./security/web_security_scanner.sh
 
