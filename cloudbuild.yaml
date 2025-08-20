@@ -19,18 +19,19 @@ steps:
   args: ['push', 'us-central1-docker.pkg.dev/vpc-satyajith/docker-3/flask-image' ]
   id: 'Push flask-image'
 
-# Step 5: Deploy using Google Cloud Deploy
-# This step applies the pipeline and target definitions, then creates a new release.
+# Step 5: Get GKE cluster credentials and deploy using Google Cloud Deploy
 - name: 'google/cloud-sdk:latest'
   entrypoint: 'sh'
   args:
   - -xe # -x: print commands, -e: exit on error
   - -c # execute the following string as a command
   - |
-    # Apply the Cloud Deploy pipeline definition
-    #gcloud deploy apply --file deploy/pipeline.yaml --region=us-central1
-    # Apply the Cloud Deploy development target definition
-    # gcloud deploy apply --file deploy/dev.yaml --region=us-central1
+    # Get GKE cluster credentials first
+    gcloud container clusters get-credentials gke-cluster-01 --zone us-central1-a --project vpc-satyajith
+    # Verify cluster connection
+    kubectl cluster-info
+    # Apply the Cloud Deploy pipeline and target definitions
+    gcloud deploy apply --file clouddeploy.yaml --region=us-central1
     # Create a new release for the delivery pipeline
     # ${SHORT_SHA} is a built-in Cloud Build substitution variable for the commit SHA
     # Use timestamp to ensure unique release names
@@ -62,6 +63,8 @@ steps:
   args:
     - -c
     - |
+      # Get cluster credentials again for this step
+      gcloud container clusters get-credentials gke-cluster-01 --zone us-central1-a --project vpc-satyajith
       # Source the environment file to get RELEASE_NAME
       if [[ -f /workspace/env.sh ]]; then
         source /workspace/env.sh
