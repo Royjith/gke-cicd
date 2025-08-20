@@ -54,7 +54,6 @@ steps:
     - 'CLUSTER=gke-cluster-01'
     - 'NAMESPACE=default'
     - 'SERVICES=my-service:8080,flask-service:8081'
-    - 'SCAN_DISPLAY_NAME=gke-cicd-scan-${SHORT_SHA}-$(date +%s)'
     - 'SCAN_FAIL_ON_SEVERITY=MEDIUM'
     - 'WAIT_CLOUD_DEPLOY=true'
     - 'DELIVERY_PIPELINE=gke-cicd-pipeline'
